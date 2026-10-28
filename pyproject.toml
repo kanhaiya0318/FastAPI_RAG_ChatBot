@@ -1,0 +1,17 @@
+[project]
+
+name = "fast-api-rag-chatbot"
+version = "0.1.0"
+description = "An Chromadb rag FastAPI chatbot using Google Gemini api"
+authors = [
+    {name = "Kanhaiya Lal", email = "k.l.kumawat0000@gmail.com"}
+]
+
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+    "pydantic-settings>=2.2.1",
+    "requests>=2.31.0",
+    "streamlit",
+    "httpx"
+]

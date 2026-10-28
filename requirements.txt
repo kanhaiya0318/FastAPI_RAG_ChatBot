@@ -1,0 +1,9 @@
+fastapi
+fastapi[standard]
+uvicorn
+pydantic-settings
+streamlit
+httpx
+pandas
+pymupdf
+chromadb==1.5.9
