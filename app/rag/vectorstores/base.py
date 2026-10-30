@@ -129,7 +129,7 @@ class BaseVectorStore(ABC):
     async def aadd_documents(
         self, documents: Iterable[Document], *, ids:list[str]|None=None
     )->list[str]:
-        return await asyncio.to_thread(self.add_documents, documents,id=ids)
+        return await asyncio.to_thread(self.add_documents, documents,ids=ids)
 
 
     async def asimilarity_search_with_score(

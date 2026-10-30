@@ -5,7 +5,7 @@ from app.rag.prompts import SUMMARY_PROMPT
 
 
 def is_safe_cut(msg: dict)-> bool:
-    return msg["role"] == "user"
+    return msg["role"] == "user" and any("text" in p for p in msg["parts"])
 
 
 def safe_cut(conversation_history:list, keep_last:int):

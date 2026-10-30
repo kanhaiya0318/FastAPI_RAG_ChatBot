@@ -9,6 +9,7 @@ import random
 from typing import Any, Callable
 import httpx
 
+from app.config import settings
 from app.rag.embeddings.base import BaseEmbeddings, EmbeddingError
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ class GeminiEmbeddings(BaseEmbeddings):
             self,
             api_key:str,
             *,
-            model:str = "gemini-embedding-001",
+            model:str = settings.GEMINI_EMBED_MODEL,
             output_dimensionality:int | None = 768,
             batch_size: int = _MAX_BATCH_SIZE,
             normalize:bool = True,
