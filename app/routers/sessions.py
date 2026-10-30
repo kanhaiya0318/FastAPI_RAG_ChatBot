@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends
+
 from app.dependancies import get_db
 from app.schemas.chat import HistoryResponse, EndSessionResponse
 

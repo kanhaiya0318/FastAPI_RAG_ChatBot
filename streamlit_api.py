@@ -39,11 +39,11 @@ def delete_chat(sid: str):
         remaining = list(st.session_state.chats)
         st.session_state.current = remaining[-1] if remaining else create_chat()
 
-def chat_stream(session_id: str, prompt: str, thinking_mode:str):
+def chat_stream(session_id: str, prompt: str):
     try:
         with requests.post(
-            f"{API_URL}/chat/message_stream",
-            json={"session_id":session_id,"thinking_mode":thinking_mode, "message": prompt},
+            f"{API_URL}/chat/query",
+            json={"session_id":session_id, "message": prompt},
             stream=True,
             timeout = (20.0, 20.0)             # (connect, time bw 2 chunks)
         ) as resp:
@@ -60,25 +60,40 @@ def chat_stream(session_id: str, prompt: str, thinking_mode:str):
         yield f"⚠️ Request failed: {e}"
 
 
-def chat_n(session_id: str, prompt:str):
+def fetch_documents():
     try:
-        start = time.perf_counter()
-        resp = requests.post(
-            f"{API_URL}/chat/send",
-            json={"session_id": current_id, "message": prompt},
-            timeout=60,
-        )
-        st.caption(f"⏱ {time.perf_counter() - start:.1f}s")
+        resp = requests.get(f"{API_URL}/rag/documents", timeout=10)
         resp.raise_for_status()
-        answer = resp.json()["response"]
-        return answer
+        return resp.json()
+    except requests.RequestException:
+        return None
+
+
+def upload_pdf(file):
+    try:
+        resp = requests.post(
+            f"{API_URL}/rag/upload",
+            files={"file": (file.name, file.getvalue(), "application/pdf")},
+            timeout=120,
+        )
+        if resp.status_code >= 400:
+            detail = resp.json().get("detail", resp.text)
+            return False, f"⚠️ {detail}"
+        data = resp.json()
+        if data["skipped"]:
+            return True, f"Already indexed: {data['source']}"
+        return True, f"Indexed {data['source']} ({data['chunks']} chunks)"
     except requests.ConnectionError:
-        return "⚠️ Can't reach the backend. Is uvicorn running on port 8000?"
-    except requests.HTTPError:
-        detail = resp.json().get("detail", resp.text)
-        return f"⚠️ Backend error ({resp.status_code}): {detail}"
+        return False, "⚠️ Can't reach the backend. Is uvicorn running on port 8000?"
     except requests.RequestException as e:
-        return f"⚠️ Request failed: {e}"
+        return False, f"⚠️ Upload failed: {e}"
+
+
+def delete_document(doc_id: str):
+    try:
+        requests.delete(f"{API_URL}/rag/documents/{doc_id}", timeout=10)
+    except requests.RequestException:
+        st.toast("⚠️ Could not delete the document")
 
 
 def timed(gen):
@@ -102,8 +117,26 @@ chat = st.session_state.chats[current_id]
 # ---------- sidebar ----------
 with st.sidebar:
     st.button("➕ New chat", on_click=new_chat, use_container_width=True)
+
     st.divider()
-    st.selectbox("🧠 Thinking", ["minimal", "low", "medium", "high"], key="thinking_mode")
+    st.subheader("📄 Documents")
+    pdf = st.file_uploader("Upload a PDF", type=["pdf"], key="pdf_uploader")
+    if pdf and st.button("Index PDF", use_container_width=True):
+        with st.spinner("Indexing..."):
+            ok, msg = upload_pdf(pdf)
+        (st.success if ok else st.error)(msg)
+
+    docs = fetch_documents()
+    if docs is None:
+        st.caption("Documents unavailable")
+    elif not docs:
+        st.caption("No documents yet")
+    for d in docs or []:
+        c1, c2 = st.columns([5, 1])
+        c1.caption(f"{d['source']} · {d['chunks']} chunks")
+        c2.button("🗑️", key=f"deldoc_{d['doc_id']}", on_click=delete_document, args=(d["doc_id"],))
+    st.divider()
+
     st.subheader("Chats")
     for sid, c in reversed(list(st.session_state.chats.items())):
         col1, col2 = st.columns([5, 1])
@@ -134,7 +167,7 @@ if prompt := st.chat_input("Type your message...", max_chars=MAX_CHARS):
         # with st.spinner("Thinking..."):
         #     answer = chat_n(session_id, prompt)
         # st.markdown(answer)
-        answer = st.write_stream(timed(chat_stream(current_id, prompt, st.session_state.thinking_mode)))
+        answer = st.write_stream(timed(chat_stream(current_id, prompt)))
         
 
     chat["messages"].append({"role": "assistant", "content": answer})
